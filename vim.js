@@ -59,6 +59,13 @@
 (function() {
   'use strict';
 
+  try {
+    var systemClipboard = require('nw.gui').Clipboard.get();
+  }
+  catch (e) {
+    var systemClipboard = null;
+  }
+
   var defaultKeymap = [
     // Key to key mapping. This goes first to make it possible to override
     // existing mappings.
@@ -704,6 +711,7 @@
         if (linewise && text.charAt(0) == '\n') {
           text = text.slice(1) + '\n';
         }
+
         // Lowercase and uppercase registers refer to the same register.
         // Uppercase just means append.
         var register = this.isValidRegister(registerName) ?
@@ -728,6 +736,14 @@
                 this.registers['1'] = new Register(text, linewise);
               }
               break;
+          }
+          // attempt to copy to system clipboard if no register is specified
+          if (!registerName && systemClipboard != null) {
+            try {
+              systemClipboard.set(text, 'text');
+            }
+            catch(e) {
+              }
           }
           // Make sure the unnamed register is set to what just happened
           this.unamedRegister.set(text, linewise);
@@ -1600,7 +1616,7 @@
       yank: function(cm, operatorArgs, _vim, curStart, curEnd, curOriginal) {
         vimGlobalState.registerController.pushText(
             operatorArgs.registerName, 'yank',
-            cm.getRange(curStart, curEnd), operatorArgs.linewise);
+            cm.getRange(curStart, curEnd).slice(0,-1), operatorArgs.linewise);
         cm.setCursor(curOriginal);
       }
     };
@@ -1801,7 +1817,18 @@
         var register = vimGlobalState.registerController.getRegister(
             actionArgs.registerName);
         if (!register.text) {
-          return;
+          // attempt to fetch from system clipboard if no register is specified
+          if (!actionArgs.registerName && systemClipboard) {
+            try {
+              register = {text: systemClipboard.get('text'), linewise: false};
+            }
+            catch(e) {
+              return;
+            }
+          }
+          else {
+            return;
+          }
         }
         for (var text = '', i = 0; i < actionArgs.repeat; i++) {
           text += register.text;
