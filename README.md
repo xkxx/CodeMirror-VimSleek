@@ -13,6 +13,7 @@ This is a fork of the original CodeMirror Vim mode that provides vim-seek among 
 * Copies to/Pastes from system clipboard when no register is specified. (Only works in node-webkit based editors, will silently fail otherwise)
 * Maps `U` to redo. It used to map to do nothing.
 * Maps `C-k` & `C-j` to page-up/down. They used to do nothing.
+* Maps `C--` & `C-+` to walk backward/forward in jumplist.
 * Moar in development
 
 This repo will stay updated with upstream master and works with latest version of CodeMirror.
