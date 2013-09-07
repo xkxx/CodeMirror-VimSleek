@@ -713,7 +713,6 @@
         if (linewise && text.charAt(0) == '\n') {
           text = text.slice(1) + '\n';
         }
-
         // Lowercase and uppercase registers refer to the same register.
         // Uppercase just means append.
         var register = this.isValidRegister(registerName) ?
@@ -1618,7 +1617,7 @@
       yank: function(cm, operatorArgs, _vim, curStart, curEnd, curOriginal) {
         vimGlobalState.registerController.pushText(
             operatorArgs.registerName, 'yank',
-            cm.getRange(curStart, curEnd).slice(0,-1), operatorArgs.linewise);
+            cm.getRange(curStart, curEnd), operatorArgs.linewise);
         cm.setCursor(curOriginal);
       }
     };
@@ -2963,7 +2962,7 @@
       processCommand: function(cm, input) {
         var vim = cm.state.vim;
         if (vim.visualMode) {
-          exitVisualMode(cm);
+          //exitVisualMode(cm);
         }
         var inputStream = new CodeMirror.StringStream(input);
         var params = {};
