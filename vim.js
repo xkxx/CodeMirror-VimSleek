@@ -713,6 +713,9 @@
         if (linewise && text.charAt(0) == '\n') {
           text = text.slice(1) + '\n';
         }
+        if(linewise && text.charAt(text.length - 1) !== '\n'){
+          text += '\n';
+        }
         // Lowercase and uppercase registers refer to the same register.
         // Uppercase just means append.
         var register = this.isValidRegister(registerName) ?
@@ -1815,21 +1818,18 @@
       },
       paste: function(cm, actionArgs) {
         var cur = cm.getCursor();
+        // attempt to fetch from system clipboard if no register is specified
+        if (!actionArgs.registerName && systemClipboard) {
+          try {
+            register = {text: systemClipboard.get('text'), linewise: false};
+          }
+          catch(e) {
+          }
+        }
         var register = vimGlobalState.registerController.getRegister(
             actionArgs.registerName);
         if (!register.text) {
-          // attempt to fetch from system clipboard if no register is specified
-          if (!actionArgs.registerName && systemClipboard) {
-            try {
-              register = {text: systemClipboard.get('text'), linewise: false};
-            }
-            catch(e) {
-              return;
-            }
-          }
-          else {
-            return;
-          }
+          return;
         }
         for (var text = '', i = 0; i < actionArgs.repeat; i++) {
           text += register.text;
@@ -2962,7 +2962,7 @@
       processCommand: function(cm, input) {
         var vim = cm.state.vim;
         if (vim.visualMode) {
-          //exitVisualMode(cm);
+          exitVisualMode(cm);
         }
         var inputStream = new CodeMirror.StringStream(input);
         var params = {};
