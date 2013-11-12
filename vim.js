@@ -153,9 +153,9 @@
     { keys: ['}'], type: 'motion', motion: 'moveByParagraph',
         motionArgs: { forward: true, toJumplist: true }},
     { keys: ['<C-f>'], type: 'motion',
-        motion: 'moveByPage', motionArgs: { forward: true, toJumplist: true }},
+        motion: 'moveByPage', motionArgs: { forward: true}},
     { keys: ['<C-b>'], type: 'motion',
-        motion: 'moveByPage', motionArgs: { forward: false, toJumplist: true }},
+        motion: 'moveByPage', motionArgs: { forward: false}},
     { keys: ['<C-d>'], type: 'motion',
         motion: 'moveByScroll',
         motionArgs: { forward: true, explicitRepeat: true }},
@@ -627,6 +627,9 @@
           }
           commandDispatcher.processCommand(cm, vim, command);
         }
+      },
+      handleEx: function(cm, input) {
+        exCommandDispatcher.processCommand(cm, input);
       }
     };
 
@@ -795,44 +798,73 @@
       matchCommand: function(key, keyMap, vim) {
         var inputState = vim.inputState;
         var keys = inputState.keyBuffer.concat(key);
+        var matchedCommands = [];
+        var selectedCharacter = "";
         for (var i = 0; i < keyMap.length; i++) {
           var command = keyMap[i];
           if (matchKeysPartial(keys, command.keys)) {
-            if (keys.length < command.keys.length) {
-              // Matches part of a multi-key command. Buffer and wait for next
-              // stroke.
-              inputState.keyBuffer.push(key);
-              return null;
-            }
             if (inputState.operator && command.type == 'action') {
               // Ignore matched action commands after an operator. Operators
               // only operate on motions. This check is really for text
               // objects since aW, a[ etcs conflicts with a.
               continue;
             }
-            // Matches whole comand. Return the command.
+            // Match commands that take <character> as an argument.
+
             command.keys.forEach(function(char, index) {
                 if(char == 'character') {
-                    inputState.selectedCharacter = inputState.selectedCharacter || '';
                     switch(keys[index]){
                       case '<CR>':
-                        inputState.selectedCharacter+='\n';
+                        selectedCharacter+='\n';
                         break;
                       case '<Space>':
-                        inputState.selectedCharacter+=' ';
+                        selectedCharacter+=' ';
                         break;
                       default:
-                        inputState.selectedCharacter+=keys[index];
+                        selectedCharacter+=keys[index];
                     }
                 }
             });
+            // Add the command to the list of matched commands. Choose the best
+            // command later.
+            matchedCommands.push(command);
+          }
+        }
+        // Returns the command if it is a full match, or null if not.
+        function getFullyMatchedCommandOrNull(command) {
+          if (keys.length < command.keys.length) {
+            // Matches part of a multi-key command. Buffer and wait for next
+            // stroke.
+            inputState.keyBuffer.push(key);
+            return null;
+          } else {
+            if (command.keys.indexOf('character') != -1) {
+              inputState.selectedCharacter = selectedCharacter;
+            }
+            // Clear the buffer since a full match was found.
             inputState.keyBuffer = [];
             return command;
           }
+          }
+
+        if (!matchedCommands.length) {
+          // Clear the buffer since there were no matches.
+          inputState.keyBuffer = [];
+          return null;
+        } else if (matchedCommands.length == 1) {
+          return getFullyMatchedCommandOrNull(matchedCommands[0]);
+        } else {
+          // Find the best match in the list of matchedCommands.
+          var context = vim.visualMode ? 'visual' : 'normal';
+          var bestMatch = matchedCommands[0]; // Default to first in the list.
+          for (var i = 0; i < matchedCommands.length; i++) {
+            if (matchedCommands[i].context == context) {
+              bestMatch = matchedCommands[i];
+              break;
+            }
+          }
+          return getFullyMatchedCommandOrNull(bestMatch);
         }
-        // Clear the buffer since there are no partial matches.
-        inputState.keyBuffer = [];
-        return null;
       },
       processCommand: function(cm, vim, command) {
         vim.inputState.repeatOverride = command.repeatOverride;
@@ -2775,10 +2807,9 @@
       return regexp;
     }
     function showConfirm(cm, text) {
-      if (cm.openConfirm) {
-        cm.openConfirm('<span style="color: red">' + text +
-            '</span> <button type="button">OK</button>', function() {},
-            {bottom: true});
+      if (cm.openNotification) {
+        cm.openNotification('<span style="color: red">' + text + '</span>',
+                            {bottom: true, duration: 5000});
       } else {
         alert(text);
       }
@@ -2962,7 +2993,7 @@
       processCommand: function(cm, input) {
         var vim = cm.state.vim;
         if (vim.visualMode) {
-          exitVisualMode(cm);
+          //exitVisualMode(cm);
         }
         var inputStream = new CodeMirror.StringStream(input);
         var params = {};
