@@ -1,7 +1,7 @@
 CodeMirror-VimSleek
 ===================
 
-This is a fork of the original CodeMirror Vim mode that provides vim-seek among other things that (allegedly) improves Vim experience on CodeMirror. It might drive vintage Vim users nuts, though.
+This is a fork of the original CodeMirror Vim mode that provides vim-seek among other things that (imho) improves the Vim experience on CodeMirror. It works on LightTable as a drop-in replacement for the vanilla Vim plugin, and otherwise replaces `vim.js` on any CodeMirror-based editors. Some of its features might drive vintage Vim users nuts, though.
 
 ## Features
 
@@ -14,6 +14,20 @@ This is a fork of the original CodeMirror Vim mode that provides vim-seek among 
 * Maps `U` to redo. It used to map to do nothing.
 * Maps `C-k` & `C-j` to page-up/down. They used to do nothing.
 * Maps `C--` & `C-+` to walk backward/forward in jumplist.
+* Compatibility with LightTable - works as a plugin.
 * Moar in development
 
-This repo will stay updated with upstream master and works with latest version of CodeMirror.
+This repo will stay updated with upstream and works with latest version of CodeMirror.
+
+## Installation on LightTable
+
+First, remove the vanilla Vim plugin.
+
+Then nagivate to:
+
+mac: `~/Library/Application Support/LightTable`
+linux: `~/.config/LightTable`
+windows: `%APPDATALOCAL%/LightTable`
+
+Download this repo and throw it in the plugins folder. Should work out of the gate.
+

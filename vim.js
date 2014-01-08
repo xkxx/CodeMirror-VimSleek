@@ -94,6 +94,7 @@
     { keys: ['<C-j>'], type: 'keyToKey', toKeys: ['<C-f>'] },
     { keys: ['<PageUp>'], type: 'keyToKey', toKeys: ['<C-b>'] },
     { keys: ['<PageDown>'], type: 'keyToKey', toKeys: ['<C-f>'] },
+    { keys: ['<CR>'], type: 'keyToKey', toKeys: ['j', '^'], context: 'normal' },
     // Motions
     { keys: ['H'], type: 'motion',
         motion: 'moveToTopLine',
@@ -830,6 +831,7 @@
             matchedCommands.push(command);
           }
         }
+
         // Returns the command if it is a full match, or null if not.
         function getFullyMatchedCommandOrNull(command) {
           if (keys.length < command.keys.length) {
@@ -1670,6 +1672,43 @@
         var markPos = mark ? mark.find() : undefined;
         markPos = markPos ? markPos : cm.getCursor();
         cm.setCursor(markPos);
+      },
+      scroll: function(cm, actionArgs, vim) {
+        if (vim.visualMode) {
+          return;
+        }
+        var repeat = actionArgs.repeat || 1;
+        var lineHeight = cm.defaultTextHeight();
+        var top = cm.getScrollInfo().top;
+        var delta = lineHeight * repeat;
+        var newPos = actionArgs.forward ? top + delta : top - delta;
+        var cursor = cm.getCursor();
+        var cursorCoords = cm.charCoords(cursor, 'local');
+        if (actionArgs.forward) {
+          if (newPos > cursorCoords.top) {
+             cursor.line += (newPos - cursorCoords.top) / lineHeight;
+             cursor.line = Math.ceil(cursor.line);
+             cm.setCursor(cursor);
+             cursorCoords = cm.charCoords(cursor, 'local');
+             cm.scrollTo(null, cursorCoords.top);
+          } else {
+             // Cursor stays within bounds.  Just reposition the scroll window.
+             cm.scrollTo(null, newPos);
+          }
+        } else {
+          var newBottom = newPos + cm.getScrollInfo().clientHeight;
+          if (newBottom < cursorCoords.bottom) {
+             cursor.line -= (cursorCoords.bottom - newBottom) / lineHeight;
+             cursor.line = Math.floor(cursor.line);
+             cm.setCursor(cursor);
+             cursorCoords = cm.charCoords(cursor, 'local');
+             cm.scrollTo(
+                 null, cursorCoords.bottom - cm.getScrollInfo().clientHeight);
+          } else {
+             // Cursor stays within bounds.  Just reposition the scroll window.
+             cm.scrollTo(null, newPos);
+          }
+        }
       },
       scrollToCursor: function(cm, actionArgs) {
         var lineNum = cm.getCursor().line;
@@ -2993,7 +3032,7 @@
       processCommand: function(cm, input) {
         var vim = cm.state.vim;
         if (vim.visualMode) {
-          //exitVisualMode(cm);
+          exitVisualMode(cm);
         }
         var inputStream = new CodeMirror.StringStream(input);
         var params = {};
@@ -3036,6 +3075,7 @@
           exCommands[commandName](cm, params);
         } catch(e) {
           showConfirm(cm, e);
+          throw e;
         }
       },
       parseInput_: function(cm, inputStream, result) {
@@ -3196,7 +3236,7 @@
             var args = new CodeMirror.StringStream(params.argString);
             if (args.eat('!')) { reverse = true; }
             if (args.eol()) { return; }
-            if (!args.eatSpace()) { throw new Error('invalid arguments ' + args.match(/.*/)[0]); }
+            if (!args.eatSpace()) { return 'Invalid arguments'; }
             var opts = args.match(/[a-z]+/);
             if (opts) {
               opts = opts[0];
@@ -3205,13 +3245,17 @@
               var decimal = opts.indexOf('d') != -1 && 1;
               var hex = opts.indexOf('x') != -1 && 1;
               var octal = opts.indexOf('o') != -1 && 1;
-              if (decimal + hex + octal > 1) { throw new Error('invalid arguments'); }
+              if (decimal + hex + octal > 1) { return 'Invalid arguments'; }
               number = decimal && 'decimal' || hex && 'hex' || octal && 'octal';
             }
-            if (args.eatSpace() && args.match(/\/.*\//)) { throw new Error('patterns not supported'); }
+            if (args.eatSpace() && args.match(/\/.*\//)) { 'patterns not supported'; }
           }
         }
-        parseArgs();
+        var err = parseArgs();
+        if (err) {
+          showConfirm(cm, err + ': ' + params.argString);
+          return;
+        }
         var lineStart = params.line || cm.firstLine();
         var lineEnd = params.lineEnd || params.line || cm.lastLine();
         if (lineStart == lineEnd) { return; }
@@ -3337,13 +3381,13 @@
         clearSearchHighlight(cm);
       },
       delmarks: function(cm, params) {
-        if (!params.argString || !params.argString.trim()) {
+        if (!params.argString || !trim(params.argString)) {
           showConfirm(cm, 'Argument required');
           return;
         }
 
         var state = cm.state.vim;
-        var stream = new CodeMirror.StringStream(params.argString.trim());
+        var stream = new CodeMirror.StringStream(trim(params.argString));
         while (!stream.eol()) {
           stream.eatSpace();
 
@@ -3480,7 +3524,8 @@
       // Actually do replace.
       next();
       if (done) {
-        throw new Error('No matches for ' + query.source);
+        showConfirm(cm, 'No matches for ' + query.source);
+        return;
       }
       if (!confirm) {
         replaceAll();
