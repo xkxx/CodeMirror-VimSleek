@@ -847,7 +847,7 @@
             inputState.keyBuffer = [];
             return command;
           }
-          }
+        }
 
         if (!matchedCommands.length) {
           // Clear the buffer since there were no matches.
